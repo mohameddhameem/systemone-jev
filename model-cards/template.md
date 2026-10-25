@@ -22,6 +22,7 @@ chosen on validation.
 - **Small model:** Qwen2.5-1.5B-Instruct on nano-jev's top-2 HotpotQA paragraphs. **Large model:** Qwen2.5-7B-Instruct on all 10.
 - **Label:** the large model is needed, meaning the small one is wrong and the large one is right ({metric} scoring, tau = {tau}).
 - **Seeds:** seed 0 is in the root folder; seeds 1 and 2 are in `seed1/` and `seed2/`.
+- **Code:** [github.com/mohameddhameem/systemone-jev](https://github.com/mohameddhameem/systemone-jev) (training, evaluation, `route.py`).
 
 ## Results
 
