@@ -1,0 +1,57 @@
+{
+ "device": "cpu",
+ "tolerance": 0.01,
+ "max_abs_diff": 0.007551014423370361,
+ "max_decisions_flipped": 2,
+ "questions": 1481,
+ "runs": [
+  {
+   "router": "qp",
+   "seed": 0,
+   "max_abs_diff": 0.0061511993408203125,
+   "threshold": 0.25353744626045227,
+   "decisions_flipped": 1,
+   "questions": 1481
+  },
+  {
+   "router": "qp",
+   "seed": 1,
+   "max_abs_diff": 0.006331264972686768,
+   "threshold": 0.22592855989933014,
+   "decisions_flipped": 0,
+   "questions": 1481
+  },
+  {
+   "router": "qp",
+   "seed": 2,
+   "max_abs_diff": 0.006539538502693176,
+   "threshold": 0.169956237077713,
+   "decisions_flipped": 1,
+   "questions": 1481
+  },
+  {
+   "router": "qpa",
+   "seed": 0,
+   "max_abs_diff": 0.003124326467514038,
+   "threshold": 0.18683576583862305,
+   "decisions_flipped": 1,
+   "questions": 1481
+  },
+  {
+   "router": "qpa",
+   "seed": 1,
+   "max_abs_diff": 0.007551014423370361,
+   "threshold": 0.475605309009552,
+   "decisions_flipped": 0,
+   "questions": 1481
+  },
+  {
+   "router": "qpa",
+   "seed": 2,
+   "max_abs_diff": 0.0040024518966674805,
+   "threshold": 0.16803622245788574,
+   "decisions_flipped": 2,
+   "questions": 1481
+  }
+ ]
+}

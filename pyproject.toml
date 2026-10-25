@@ -1,0 +1,47 @@
+[project]
+name = "systemone-jev"
+version = "0.1.0"
+description = "System One routers: a nano-jev typed-decision judge that routes HotpotQA questions between a small and a large LLM"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.0",
+    "pyarrow>=15",
+    "scikit-learn>=1.5",
+    "scipy>=1.11",
+    "torch>=2.4",
+    "transformers>=4.45",
+    "huggingface_hub>=0.25",
+    "stair-common[plot]",
+]
+
+[project.optional-dependencies]
+ids = ["datasets>=3.0"]  # nanojev_ids: rebuild the list of nano-jev's own training questions
+
+[project.scripts]
+judge = "systemone_jev.judge:main"
+nanojev-ids = "systemone_jev.nanojev_ids:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+# CUDA 12.6 wheels, with a CPU fallback.
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
+stair-common = { git = "https://github.com/mohameddhameem/STAIR.git", subdirectory = "common", rev = "00ee140c323159619b471253502d2e6537f83dde" }
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["systemone_jev"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

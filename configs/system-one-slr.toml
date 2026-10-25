@@ -1,0 +1,42 @@
+# Training plan for the published routers: nano-jev's qp and qpa judges on the HotpotQA SLR split.
+# The split (from the Stage-Level Routing setup) has 4,814 training, 1,110 calibration and 1,481 test
+# questions, all from HotpotQA dev. Labels and AIQ use the lenient ruler (0/1, so tau 0.5). Cost is the
+# AgentTTS Table 5 price per answering call; a judge's own calls are priced with stair_common.cost.budget.
+#   uv run judge all --plan configs/system-one-slr.toml --out runs/judges
+metric = "lenient"
+cost = "table5"
+tau = 0.5
+max_drop = 0.01
+seeds = [0, 1, 2]
+paired_references = ["judge/qp-large-helps-nanojev-A", "judge/qpa-large-helps-nanojev-A"]
+
+[pairs]
+A = "runs/pair-a"   # small (1.5B, top 2 paragraphs) and large (7B, all 10) answers, cached per question
+
+[split_data]  # every split comes from HotpotQA dev
+router_train = "distractor_validation.parquet"
+calib = "distractor_validation.parquet"
+test = "distractor_validation.parquet"
+
+# nano-jev v1.0's own fine-tuning settings
+[train]
+epochs = 3
+lr = 5e-5
+weight_decay = 0.01
+warmup = 0.06
+batch_size = 16
+max_length = 512
+dev_fraction = 0.1
+
+# qp decides before the small model runs; qpa decides after it, reading its answer too
+[[judges]]
+inputs = "qp"
+label = "large-helps"
+init = "sdmlai/nano-jev@v1.0"
+train_pair = "A"
+
+[[judges]]
+inputs = "qpa"
+label = "large-helps"
+init = "sdmlai/nano-jev@v1.0"
+train_pair = "A"
