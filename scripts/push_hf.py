@@ -7,6 +7,7 @@ questions) and results/report-clean.json (the 1,303 that nano-jev did not see), 
 
     uv run python scripts/push_hf.py --org <hf-org>            # dry run: stages into build/hf/<repo>/ and prints it
     uv run python scripts/push_hf.py --org <hf-org> --push     # upload (needs `hf auth login`)
+    uv run python scripts/push_hf.py --org <hf-org> --cards-only [--push]   # only README.md, to fix a card's text
 
 --run is the pair's run folder (calib.parquet + config.toml), copied to models/run.
 """
@@ -67,18 +68,17 @@ def render_card(inputs: str, name: str, org: str, report: dict, clean: dict, pla
             raise SystemExit(f"{name}: a judge difference is significant; update model-cards/template.md first")
 
     check = json.loads((ROOT / "results" / "score_check.json").read_text())
+    runs = [r for r in check["runs"] if r["router"] == inputs]  # this router's CPU check, one entry per seed
     seed0 = judge["aiq_per_seed"][0]  # the root folder's own model, the one its systemone.json thresholds
-    per_call = judge["judge_cost"] / judge["judge_passes"]  # one seed's own calls, in the report's cost unit
     fields = {"inputs": inputs, "answer_arg": ", answer=small_answer" if inputs == "qpa" else "",
               "inputs_text": {"qp": "the question and the small model's passages (before the small model answers)",
                               "qpa": "the question, the small model's passages and its answer"}[inputs],
               "repo": f"{org}/systemone-jev-{inputs}", "metric": report["metric"],
               "cost_unit": "AgentTTS Table 5 price per answering call", "tau": plan["tau"],
-              "cpu_max_diff": f"{check['max_abs_diff']:.1e}",
-              "cpu_flips": str(check["max_decisions_flipped"]), "n_test": f"{check['questions']:,}",
+              "cpu_max_diff": f"{max(r['max_abs_diff'] for r in runs):.1e}",
+              "cpu_flips": str(next(r["decisions_flipped"] for r in runs if r["seed"] == 0)),
+              "cpu_flips_max": str(max(r["decisions_flipped"] for r in runs)), "n_test": f"{check['questions']:,}",
               "aiq_seed0": f"{seed0:.3f}",
-              "aiq_seed0_with_cost": f"{judge['aiq_per_seed_with_cost'][0]:.3f}",
-              "per_call_cost": f"{per_call:.3f}",
               "aiq": f"{judge['aiq']:.3f}", "judge_ci": ci_text(boot["aiq_ci95"][judge_key]),
               "aiq_with_cost": f"{judge['aiq_with_judge_cost']:.3f}", "judge_cost": f"{judge['judge_cost']:.3f}",
               "aiq_clean": f"{clean['judges'][f'judge/{name}']['aiq']:.3f}",
@@ -102,6 +102,8 @@ def main() -> None:
     p.add_argument("--org", required=True)
     p.add_argument("--run", type=Path, default=ROOT / "models" / "run", help="the pair's calib.parquet + config.toml")
     p.add_argument("--push", action="store_true")
+    p.add_argument("--cards-only", action="store_true",
+                   help="stage (and with --push upload) only each repo's README.md; needs no models/")
     args = p.parse_args()
     plan = tomllib.loads(PLAN.read_text())
     report = json.loads((ROOT / "results" / "report.json").read_text())
@@ -114,6 +116,22 @@ def main() -> None:
         raise SystemExit("results/score_check.json is missing: run scripts/check_scores.py --device cpu first")
     if not all((ROOT / "figures" / f).exists() for f in ("aiq.png", "cost_accuracy.png")):
         raise SystemExit("figures/ is missing: run scripts/make_figures.py first")
+    if args.cards_only:
+        for inputs, name in ROUTERS.items():
+            repo = f"{args.org}/systemone-jev-{inputs}"
+            card = ROOT / "build" / "hf-cards" / repo.replace("/", "__") / "README.md"
+            card.parent.mkdir(parents=True, exist_ok=True)
+            card.write_text(render_card(inputs, name, args.org, report, clean, plan), encoding="utf-8")
+            print(f"{repo}: card staged in {card}")
+            if args.push and "license: TODO" in card.read_text(encoding="utf-8"):
+                raise SystemExit("set the licence in model-cards/template.md before pushing")
+            if args.push:
+                from huggingface_hub import HfApi
+
+                HfApi().upload_file(path_or_fileobj=card, path_in_repo="README.md", repo_id=repo,
+                                    commit_message="Model card: per-router CPU check, ensemble use")
+                print(f"  pushed https://huggingface.co/{repo}")
+        return
     cfg = tomllib.loads((args.run / "config.toml").read_text())
     params = expert_params(cfg)
     models = {e["name"]: e.get("model", "") for e in cfg["experts"]}

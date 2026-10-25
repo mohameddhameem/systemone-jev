@@ -1,6 +1,6 @@
 # SystemOne-Jev
 
-A router that decides whether a small language model's answer is good enough, or whether the question should go to a
+A router that decides, question by question, whether a small language model is enough or the question should go to a
 large one. It is a 33M cross-encoder fine-tuned from [nano-jev](https://huggingface.co/sdmlai/nano-jev) v1.0 to answer
 one typed question, *"Which model should answer this question?"*, and it returns P(large model).
 
@@ -24,21 +24,29 @@ accuracy-vs-cost curve. The judges are 3-seed ensembles; intervals are 95% paire
 | Small-model entropy threshold | after | 0.665 |
 | Logistic-regression router | before | 0.669 |
 | Logistic-regression cascade | after | 0.681 |
-| **qp** | before | **0.674** (single seeds 0.672 ± 0.001) |
-| **qpa** | after | **0.674** (single seeds 0.671 ± 0.002) |
+| **qp** | before | 0.674 (single seeds 0.672 ± 0.001) |
+| **qpa** | after | 0.674 (single seeds 0.671 ± 0.002) |
 | Oracle | | 0.758 |
 
-The routers tie with the entropy threshold and with the logistic-regression baselines. None of the differences is
-significant, so these results do not show an accuracy gain. The router's own cost is about zero on this scale. On
-1,303 test questions that nano-jev did not see in its own training, the judges score 0.670.
+None of the differences between the routers and the entropy or logistic-regression baselines is significant. The
+closest call is qpa against the logistic-regression cascade: −0.008 (95% CI −0.017 to +0.004). So these results show
+no accuracy gain. The router's own cost is about zero on this scale. On 1,303 test questions that nano-jev did not see
+in its own training, the judges score 0.670.
 
-The saved scores were computed in bf16 on a GPU. On a CPU in fp32 they differ by up to 7.6e-3, and 2 of the 1,481
-routing decisions flip at the published threshold.
+The saved scores were computed in bf16 on a GPU.
+- **GPU:** on an NVIDIA L40S (torch 2.14.1+cu126, transformers 5.17.0), `route.py` reproduces all six saved score
+  files exactly.
+- **CPU (fp32):** the scores differ by up to 6.5e-3 (qp) and 7.6e-3 (qpa). At the published seed-0 thresholds, 1 of
+  the 1,481 routing decisions flips for each router, and at most 2 at any seed's threshold.
 
 Figures: [figures/aiq.png](figures/aiq.png), [figures/cost_accuracy.png](figures/cost_accuracy.png). Full reports:
 [results/report.json](results/report.json) and [results/report-clean.json](results/report-clean.json).
 
 ## Usage
+
+```
+pip install git+https://github.com/mohameddhameem/systemone-jev
+```
 
 ```python
 from systemone_jev.route import Router
@@ -55,12 +63,24 @@ use_large = router.route(question, passages) == "large"
 
 `qpa` also takes the small model's answer: `router.p_escalate(question, passages, answer="...")`.
 
+`Router.from_pretrained` loads seed 0, the Hub repo's root. The 3-seed ensemble in the results table averages the
+seeds' P(large model), and no threshold is published for it:
+
+```python
+from pathlib import Path
+from huggingface_hub import snapshot_download
+
+root = Path(snapshot_download("mohameddhameem/systemone-jev-qp"))
+seeds = [Router.from_pretrained(str(folder)) for folder in (root, root / "seed1", root / "seed2")]
+p = sum(r.p_escalate(question, passages) for r in seeds) / 3
+```
+
 ## Method
 
 The judge is nano-jev with a two-way question. It scores the pair (question, state) for each option, "small model" and
 "large model", and softmaxes the two scores. The label is `large-helps`: the small model is wrong and the large one is
-right. Training uses grouped-softmax cross-entropy, with the epoch picked by dev NLL and a threshold picked on the
-calibration split so that F1 stays within 1% of always-large.
+right. Training uses grouped-softmax cross-entropy, with the epoch picked by dev NLL. The threshold is picked on the
+calibration split so that lenient accuracy stays within 1% of always-large's.
 
 ## Reproducing
 
@@ -78,7 +98,7 @@ The release checks are in `scripts/`:
   a GPU and 1e-2 on a CPU.
 - `make_figures.py` redraws the two figures from `results/`.
 - `push_hf.py --org <name>` stages the Hub repositories, with cards rendered from `results/` and `model-cards/`. Add
-  `--push` to upload.
+  `--push` to upload. `--cards-only` stages, or uploads, only the cards.
 
 If your Windows setup blocks pyarrow's Parquet module, set `SYSTEMONE_PARQUET_ENGINE=fastparquet`.
 

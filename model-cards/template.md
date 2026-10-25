@@ -31,8 +31,7 @@ questions is shown too). Cost is {cost_unit}. AIQ is the area under the accuracy
 
 | | AIQ |
 |---|---|
-| Seed 0 (root folder, with its `systemone.json` threshold) | {aiq_seed0} |
-| Seed 0, including its own cost ({per_call_cost} units a call) | {aiq_seed0_with_cost} |
+| Seed 0 (root folder) | {aiq_seed0} |
 | Three-seed ensemble, 95% CI | {aiq} {judge_ci} |
 | Three-seed ensemble, 1,303 clean questions | {aiq_clean} |
 | Single seeds, mean ± sd | {aiq_seeds} |
@@ -47,11 +46,12 @@ Router minus baseline, 95% paired bootstrap:
 - against the entropy threshold: {vs_entropy}
 - against the {baseline_short}: {vs_baseline}
 
-Neither difference is significant. The router ties with these baselines; the results do not show an accuracy gain.
-Its own cost is {judge_cost} units a question on this scale.
+Neither difference is significant, so these results show no accuracy gain over the baselines. Its own cost is
+{judge_cost} units a question on this scale.
 
-The saved scores were computed in bf16 on a GPU. On a CPU in fp32 they differ by up to {cpu_max_diff}, and {cpu_flips} of
-the {n_test} routing decisions flip at the published threshold.
+The saved scores were computed in bf16 on a GPU, where `route.py` reproduces them exactly. On a CPU in fp32 they differ
+by up to {cpu_max_diff} across the three seeds. At the root folder's threshold, the routing decision flips for
+{cpu_flips} of the {n_test} questions, and for at most {cpu_flips_max} at any seed's own threshold.
 
 ![AIQ of each policy with its 95% interval](./figures/aiq.png)
 
@@ -66,6 +66,19 @@ from systemone_jev.route import Router
 router = Router.from_pretrained("{repo}")
 p = router.p_escalate(question, passages{answer_arg})   # passages: ["title: text", ...], the small model's top 2
 ```
+
+The three-seed ensemble in the table averages the seeds' P(large model):
+
+```python
+from pathlib import Path
+from huggingface_hub import snapshot_download
+
+root = Path(snapshot_download("{repo}"))
+seeds = [Router.from_pretrained(str(folder)) for folder in (root, root / "seed1", root / "seed2")]
+p = sum(r.p_escalate(question, passages{answer_arg}) for r in seeds) / 3
+```
+
+No threshold is published for the ensemble; pick one on your own validation data.
 
 ## Training
 

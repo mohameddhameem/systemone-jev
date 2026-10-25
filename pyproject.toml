@@ -13,7 +13,8 @@ dependencies = [
     "torch>=2.4",
     "transformers>=4.45",
     "huggingface_hub>=0.25",
-    "stair-common[plot]",
+    # a direct reference, so pip installs it too (pip ignores [tool.uv.sources]; stair-common is not on PyPI)
+    "stair-common[plot] @ git+https://github.com/mohameddhameem/STAIR.git@00ee140c323159619b471253502d2e6537f83dde#subdirectory=common",
 ]
 
 [project.optional-dependencies]
@@ -29,7 +30,6 @@ dev = ["pytest>=8"]
 # CUDA 12.6 wheels, with a CPU fallback.
 [tool.uv.sources]
 torch = { index = "pytorch-cu126" }
-stair-common = { git = "https://github.com/mohameddhameem/STAIR.git", subdirectory = "common", rev = "00ee140c323159619b471253502d2e6537f83dde" }
 
 [[tool.uv.index]]
 name = "pytorch-cu126"
